@@ -61,7 +61,6 @@ self.addEventListener('fetch', event => {
   if (FIREBASE_HOSTNAMES.includes(requestUrl.hostname)) {
     // For Firebase, always go to the network. Do not attempt to serve from cache.
     // Do not attempt to cache the response.
-    event.respondWith(fetch(event.request));
     return;
   }
 
