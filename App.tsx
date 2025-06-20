@@ -12,14 +12,10 @@ const LoginModal: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
     <div className="bg-neutral-700 p-8 rounded-lg shadow-xl text-center max-w-md w-full"> {/* Modal body: bg-neutral-800 -> bg-neutral-700, shadow-2xl -> shadow-xl */}
       <h2 
         className="text-3xl font-bold mb-6 orbitron text-neutral-100 apply-wobble" /* Title text: text-neutral-200 -> text-neutral-100 */
-        style={{ textShadow: '0.5px 0.5px 0.1px var(--pencil-medium-gray)'}}
+        style={{color: "red", textShadow: '0.5px 0.5px 0.1px var(--pencil-medium-gray)'}}
       >
-        Access Your Cosmic Records
+        Access Your Stupid Records
       </h2>
-      <p className="mb-8 spectral text-neutral-300"> {/* Paragraph text: text-neutral-400 -> text-neutral-300 */}
-        To chart your course through the æons and preserve your daily inscriptions, please sign in with Google.
-        Your chronicles will be securely stored in the astral plane (Firebase).
-      </p>
       <button
         onClick={onLogin}
         className="orbitron flex items-center justify-center w-full px-6 py-4 rounded-md text-neutral-100 bg-neutral-800
