@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CalendarGrid } from './components/CalendarGrid';
 import { ArchiveToggle } from './components/ArchiveToggle';
 import { getISODateString, addDays, formatDateForDisplay, getDayOfWeek, getMonthName } from './utils/dateUtils';
 import type { CalendarEntry, UserDocumentData } from './types'; // Updated import
 // import { CALENDAR_ENTRIES_KEY, LAST_TODAY_KEY } from './constants'; // No longer used for entries
-import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, doc, setDoc, getDoc, type FirebaseUser } from './firebaseConfig'; // Note path adjustment if App.tsx is not in root
+import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, doc, setDoc, getDoc, type FirebaseUser } from '../firebaseConfig'; // Note path adjustment if App.tsx is not in root
 
 const LoginModal: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
   <div className="fixed inset-0 bg-neutral-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -13,7 +14,7 @@ const LoginModal: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
         className="text-3xl font-bold mb-6 orbitron text-neutral-100 apply-wobble" /* Title text: text-neutral-200 -> text-neutral-100 */
         style={{ textShadow: '0.5px 0.5px 0.1px var(--pencil-medium-gray)'}}
       >
-        Access Your Stupid Records
+        Access Your Dumb Records
       </h2>
       <button
         onClick={onLogin}
@@ -78,12 +79,23 @@ const App: React.FC = () => {
     }
   }, [currentUser, authLoading]);
   
-  // Initialize currentDisplayKey (runs once)
+  // Initialize currentDisplayKey (runs once on mount)
    useEffect(() => {
     const actualTodayKey = getISODateString(new Date());
     setCurrentDisplayKey(actualTodayKey);
-    // localStorage.setItem(LAST_TODAY_KEY, actualTodayKey); // No longer needed
   }, []);
+
+  // Periodically check for date changes (e.g., at midnight)
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const newTodayKey = getISODateString(new Date());
+      if (newTodayKey !== currentDisplayKey) {
+        setCurrentDisplayKey(newTodayKey);
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, [currentDisplayKey]); // Rerun effect if currentDisplayKey changes
 
 
   // Scroll to today's cell effect
