@@ -1,40 +1,48 @@
-const CACHE_NAME = 'cosmic-calendar-cache-v3'; // Incremented version
+
+const CACHE_NAME = 'cosmic-calendar-cache-v4'; // Incremented version
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
-  // You should add paths to your actual icon files here if different from manifest
+  // Add paths to your icon files if they are not in the root or are different
   // e.g., '/icons/icon-192x192.png', '/icons/icon-512x512.png',
-  // Google Fonts (attempt to cache, may be opaque)
   'https://fonts.googleapis.com/css2?family=Spectral:wght@400;700&family=Orbitron:wght@400;700&display=swap'
 ];
 
 const FIREBASE_HOSTNAMES = [
   'firestore.googleapis.com',
   'firebaseauth.googleapis.com',
-  // Add other Firebase service hostnames if you use them, e.g., for Storage or Functions
-  // 'firebasestorage.googleapis.com',
+  // 'firebasestorage.googleapis.com', // Uncomment if you use Firebase Storage
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Service Worker: Opened cache');
+        console.log('Service Worker: Opened cache ' + CACHE_NAME);
         const requests = urlsToCache.map(url => {
           if (url.startsWith('http')) {
+            // For external resources like Google Fonts, use 'no-cors' to allow caching
+            // of opaque responses. This means you can't inspect the response, but it can be served.
             return new Request(url, { mode: 'no-cors' });
           }
           return url;
         });
         return cache.addAll(requests)
           .catch(error => {
-            console.error('Service Worker: Failed to cache some critical resources during install:', error, requests.filter(r => typeof r === 'string' && r.startsWith('http')));
+            console.error('Service Worker: Failed to cache some resources during install:', error);
+            // Log which specific requests failed if possible
+            requests.forEach(req => {
+              const urlToLog = typeof req === 'string' ? req : req.url;
+              cache.match(urlToLog).then(res => {
+                if (!res) console.error('Failed to cache:', urlToLog);
+              });
+            });
           });
       })
   );
-  self.skipWaiting();
+  self.skipWaiting(); // Force the new service worker to activate immediately
 });
 
 self.addEventListener('activate', event => {
@@ -49,9 +57,11 @@ self.addEventListener('activate', event => {
           }
         })
       );
+    }).then(() => {
+      console.log('Service Worker: Activated and old caches cleaned.');
+      return self.clients.claim(); // Ensure new SW takes control of all clients immediately
     })
   );
-  return self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
@@ -59,8 +69,8 @@ self.addEventListener('fetch', event => {
 
   // **** Critical: Bypass Firebase requests ENTIRELY from SW caching logic ****
   if (FIREBASE_HOSTNAMES.includes(requestUrl.hostname)) {
-    // For Firebase, always go to the network. Do not attempt to serve from cache.
-    // Do not attempt to cache the response.
+    // For Firebase, let the browser handle the request directly.
+    // DO NOT call event.respondWith() here.
     return;
   }
 
@@ -68,19 +78,21 @@ self.addEventListener('fetch', event => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
+        .then(networkResponse => {
+          // It's a good practice to cache successful navigation responses
+          // if they are part of your app shell or frequently accessed pages.
+          // However, for single-page apps, caching index.html during install is usually enough.
+          return networkResponse;
+        })
         .catch(() => {
           console.log('Service Worker: Network failed for navigation, trying cache for', event.request.url);
-          return caches.match(event.request);
-        })
-        .then(response => {
-          if (response) return response;
-          // If specific navigation request not in cache, fallback to root index.html
-          console.log('Service Worker: Specific navigation not found, falling back to /index.html');
-          return caches.match('/index.html');
-        })
-        .catch(error => {
-            console.error('Service Worker: Error handling navigation for', event.request.url, error);
-            // This would be a place for a truly generic offline page if /index.html also fails
+          return caches.match(event.request) // Try to match the specific navigation request
+            .then(cachedResponse => {
+              if (cachedResponse) return cachedResponse;
+              // If specific navigation request not in cache, fallback to root index.html
+              console.log('Service Worker: Specific navigation not found in cache, falling back to /index.html');
+              return caches.match('/index.html');
+            });
         })
     );
     return;
@@ -98,6 +110,8 @@ self.addEventListener('fetch', event => {
         return fetch(event.request).then(networkResponse => {
           // Check if we should cache this new resource
           if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+            // Ensure you don't cache opaque responses here unless intended (e.g., for CDNs where you control the content)
+            // For most assets, this is fine.
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then(cache => {
               cache.put(event.request, responseToCache);
@@ -108,9 +122,8 @@ self.addEventListener('fetch', event => {
       })
       .catch(error => {
         console.warn('Service Worker: Failed to serve asset from cache/network:', event.request.url, error);
-        // For assets, you might not want a fallback, or a specific placeholder (e.g., for images)
-        // Returning a new Response for error states can prevent browser's default error page for assets.
-        // For example: return new Response('', { status: 404, statusText: 'Not Found' });
+        // Optionally, return a fallback response for certain asset types (e.g., placeholder image)
+        // return new Response('', { status: 404, statusText: 'Not Found' });
       })
   );
 });
