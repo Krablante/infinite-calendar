@@ -3,15 +3,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CalendarGrid } from './components/CalendarGrid';
 import { ArchiveToggle } from './components/ArchiveToggle';
 import { getISODateString, addDays, formatDateForDisplay, getDayOfWeek, getMonthName } from './utils/dateUtils';
-import type { CalendarEntry, UserDocumentData } from './types'; // Updated import
-// import { CALENDAR_ENTRIES_KEY, LAST_TODAY_KEY } from './constants'; // No longer used for entries
-import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, doc, setDoc, getDoc, type FirebaseUser } from './firebaseConfig'; // Note path adjustment if App.tsx is not in root
+import type { CalendarEntry, UserDocumentData } from './types';
+import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, doc, setDoc, getDoc, type FirebaseUser } from './firebaseConfig';
 
 const LoginModal: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
   <div className="fixed inset-0 bg-neutral-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-    <div className="bg-neutral-700 p-8 rounded-lg shadow-xl text-center max-w-md w-full"> {/* Modal body: bg-neutral-800 -> bg-neutral-700, shadow-2xl -> shadow-xl */}
+    <div className="bg-neutral-700 p-8 rounded-lg shadow-xl text-center max-w-md w-full">
       <h2 
-        className="text-3xl font-bold mb-6 orbitron text-neutral-100 apply-wobble" /* Title text: text-neutral-200 -> text-neutral-100 */
+        className="text-3xl font-bold mb-6 orbitron text-neutral-100 apply-wobble"
         style={{ textShadow: '0.5px 0.5px 0.1px var(--pencil-medium-gray)'}}
       >
         Access Your Dumb Records
@@ -19,7 +18,7 @@ const LoginModal: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
       <button
         onClick={onLogin}
         className="orbitron flex items-center justify-center w-full px-6 py-4 rounded-md text-neutral-100 bg-neutral-800
-                   hover:bg-neutral-700 transition-all duration-200 ease-in-out  /* Button: bg-neutral-700 -> bg-neutral-800, hover:bg-neutral-600 -> hover:bg-neutral-700 */
+                   hover:bg-neutral-700 transition-all duration-200 ease-in-out
                    focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-opacity-70 
                    text-lg rough-border apply-wobble shadow-md hover:shadow-lg"
       >
@@ -32,16 +31,16 @@ const LoginModal: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
 
 const App: React.FC = () => {
   const [allEntries, setAllEntries] = useState<Record<string, CalendarEntry>>({});
+  // currentDisplayKey is now based on local date
   const [currentDisplayKey, setCurrentDisplayKey] = useState<string>(getISODateString(new Date()));
   const [showArchive, setShowArchive] = useState<boolean>(false);
   
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
-  const [dataLoading, setDataLoading] = useState<boolean>(true); // For Firestore data
+  const [dataLoading, setDataLoading] = useState<boolean>(true);
 
   const todayCellRef = useRef<HTMLDivElement>(null);
 
-  // Auth listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -50,55 +49,50 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch data from Firestore on user login
   useEffect(() => {
     if (currentUser && !authLoading) {
       setDataLoading(true);
       const userEntriesRef = doc(db, 'users', currentUser.uid);
       getDoc(userEntriesRef).then(docSnap => {
         if (docSnap.exists()) {
-          const userData = docSnap.data() as UserDocumentData; // Cast to UserDocumentData
+          const userData = docSnap.data() as UserDocumentData;
           if (userData && userData.entries) {
             setAllEntries(userData.entries);
           } else {
-            setAllEntries({}); // User document exists but no entries field, or entries is undefined/null
+            setAllEntries({});
           }
         } else {
-          setAllEntries({}); // New user or no document
+          setAllEntries({});
         }
         setDataLoading(false);
       }).catch(error => {
         console.error("Error fetching user entries:", error);
-        setAllEntries({}); // Clear entries on error to prevent inconsistent state
+        setAllEntries({});
         setDataLoading(false);
       });
     } else if (!currentUser && !authLoading) {
-      // User is logged out, clear entries and stop data loading
       setAllEntries({});
       setDataLoading(false);
     }
   }, [currentUser, authLoading]);
   
-  // Initialize currentDisplayKey (runs once on mount)
-   useEffect(() => {
-    const actualTodayKey = getISODateString(new Date());
-    setCurrentDisplayKey(actualTodayKey);
-  }, []);
+  // No longer need a separate useEffect to initialize currentDisplayKey, useState handles it.
 
-  // Periodically check for date changes (e.g., at midnight)
+  // Periodically check for local date changes (e.g., at local midnight)
   useEffect(() => {
     const intervalId = setInterval(() => {
-      const newTodayKey = getISODateString(new Date());
-      if (newTodayKey !== currentDisplayKey) {
-        setCurrentDisplayKey(newTodayKey);
-      }
+      const newTodayKey = getISODateString(new Date()); // Now gets local date string
+      setCurrentDisplayKey(prevDisplayKey => {
+        if (newTodayKey !== prevDisplayKey) {
+          return newTodayKey; // Update if different
+        }
+        return prevDisplayKey; // Otherwise, keep the same state
+      });
     }, 60000); // Check every minute
 
     return () => clearInterval(intervalId); // Cleanup on unmount
-  }, [currentDisplayKey]); // Rerun effect if currentDisplayKey changes
+  }, []); // Empty dependency array: set up interval once and let it run.
 
-
-  // Scroll to today's cell effect
   useEffect(() => {
     if (!dataLoading && !authLoading && currentUser && todayCellRef.current) {
       todayCellRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
@@ -115,14 +109,12 @@ const App: React.FC = () => {
       [dateKey]: newEntryData
     }));
 
-    // Save to Firestore
     const updatedEntries = { ...allEntries, [dateKey]: newEntryData };
      try {
       const userEntriesRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userEntriesRef, { entries: updatedEntries }, { merge: true }); // Using merge to not overwrite other potential user data
+      await setDoc(userEntriesRef, { entries: updatedEntries }, { merge: true });
     } catch (error) {
       console.error("Error saving entry to Firestore:", error);
-      // Potentially revert optimistic update or notify user
     }
   }, [currentUser, allEntries]);
 
@@ -133,7 +125,6 @@ const App: React.FC = () => {
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged will handle setting the user
     } catch (error) {
       console.error("Google Sign-In Error:", error);
     }
@@ -142,7 +133,6 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      // onAuthStateChanged will handle clearing the user
     } catch (error) {
       console.error("Sign Out Error:", error);
     }
@@ -150,7 +140,7 @@ const App: React.FC = () => {
   
   const isLoading = authLoading || dataLoading;
 
-  if (authLoading) { // Initial auth check, show minimal loader
+  if (authLoading) {
      return (
       <div className="min-h-screen flex items-center justify-center spectral">
         <div className="animate-pulse text-2xl orbitron text-neutral-700" style={{ textShadow: '0.5px 0.5px 0px var(--pencil-light-gray)'}}>Authenticating Scribe...</div>
@@ -162,7 +152,6 @@ const App: React.FC = () => {
     return <LoginModal onLogin={handleLogin} />;
   }
   
-  // This loader is for when user is logged in but data is still fetching
   if (isLoading && currentUser) {
      return (
       <div className="min-h-screen flex items-center justify-center spectral">
@@ -170,7 +159,6 @@ const App: React.FC = () => {
       </div>
     );
   }
-
 
   const daysToDisplay: string[] = [];
   const activeWindowDays: string[] = [];
@@ -181,15 +169,16 @@ const App: React.FC = () => {
 
   if (showArchive) {
     const archivedKeys = Object.keys(allEntries)
-      .filter(key => key < currentDisplayKey)
-      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+      .filter(key => key < currentDisplayKey) // String comparison works for YYYY-MM-DD
+      .sort((a, b) => a.localeCompare(b)); // Sort keys chronologically
     daysToDisplay.push(...archivedKeys);
   }
   daysToDisplay.push(...activeWindowDays);
 
-  const todayDate = new Date(currentDisplayKey + 'T00:00:00'); // Use currentDisplayKey for month/year consistency
-  const currentMonthName = getMonthName(todayDate);
-  const currentYear = todayDate.getFullYear();
+  // currentDisplayKey is YYYY-MM-DD local, parse it correctly for Date object
+  const dateForHeader = new Date(currentDisplayKey + 'T00:00:00'); // Interprets YYYY-MM-DD as local
+  const currentMonthName = getMonthName(dateForHeader);
+  const currentYear = dateForHeader.getFullYear();
 
   return (
     <div 

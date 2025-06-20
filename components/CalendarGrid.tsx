@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { DayCell } from './DayCell';
 import type { CalendarGridProps } from '../types';
@@ -14,11 +15,10 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({ allEntries, displayK
         const entry = allEntries[dateKey];
         const isToday = dateKey === currentDisplayKey;
         
-        const dateObj = new Date(dateKey + 'T00:00:00.000Z'); 
-        const currentDateObj = new Date(currentDisplayKey + 'T00:00:00.000Z');
-
-        const isPast = dateObj.getTime() < currentDateObj.getTime();
-        const isFuture = dateObj.getTime() > currentDateObj.getTime();
+        // dateKey and currentDisplayKey are YYYY-MM-DD strings representing local dates.
+        // Direct string comparison is reliable for determining past/future.
+        const isPast = dateKey < currentDisplayKey;
+        const isFuture = dateKey > currentDisplayKey;
         
         return (
           <DayCell
