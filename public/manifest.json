@@ -4,13 +4,13 @@
   "description": "A 30-day rolling calendar with archival features, styled with a Lovecraftian cosmic theme. Track your daily endeavors as they flow through time.",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "/icon-192x192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "/icon-512x512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
