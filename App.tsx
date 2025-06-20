@@ -1,18 +1,17 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CalendarGrid } from './components/CalendarGrid';
 import { ArchiveToggle } from './components/ArchiveToggle';
 import { getISODateString, addDays, formatDateForDisplay, getDayOfWeek, getMonthName } from './utils/dateUtils';
 import type { CalendarEntry, UserDocumentData } from './types'; // Updated import
 // import { CALENDAR_ENTRIES_KEY, LAST_TODAY_KEY } from './constants'; // No longer used for entries
-import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, doc, setDoc, getDoc, type FirebaseUser } from '../firebaseConfig'; // Note path adjustment if App.tsx is not in root
+import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, doc, setDoc, getDoc, type FirebaseUser } from './firebaseConfig'; // Note path adjustment if App.tsx is not in root
 
 const LoginModal: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
   <div className="fixed inset-0 bg-neutral-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div className="bg-neutral-700 p-8 rounded-lg shadow-xl text-center max-w-md w-full"> {/* Modal body: bg-neutral-800 -> bg-neutral-700, shadow-2xl -> shadow-xl */}
       <h2 
         className="text-3xl font-bold mb-6 orbitron text-neutral-100 apply-wobble" /* Title text: text-neutral-200 -> text-neutral-100 */
-        style={{color: "red", textShadow: '0.5px 0.5px 0.1px var(--pencil-medium-gray)'}}
+        style={{ textShadow: '0.5px 0.5px 0.1px var(--pencil-medium-gray)'}}
       >
         Access Your Stupid Records
       </h2>
